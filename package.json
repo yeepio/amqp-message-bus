@@ -2,10 +2,15 @@
   "name": "rabbitmq-message-bus",
   "version": "1.0.1",
   "description": "Message bus based on RabbitMQ",
-  "main": "dist/MessageBus.js",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:access-control-management/rabbitmq-message-bus.git"
+  },
+  "license": "MIT",
   "engines": {
     "node": "^7.7.1"
   },
+  "main": "dist/MessageBus.js",
   "scripts": {
     "test": "jest --config=config/jest.json",
     "coverage": "jest --coverage --config=config/jest.json",
@@ -35,11 +40,5 @@
     "eslint-plugin-react": "^6.9.0",
     "jest-cli": "^19.0.2",
     "rimraf": "^2.6.1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git@github.com:access-control-management/api.git"
-  },
-  "license": "UNLICENSED",
-  "private": true
+  }
 }
