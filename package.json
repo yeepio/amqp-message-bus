@@ -1,5 +1,5 @@
 {
-  "name": "message-bus",
+  "name": "rabbitmq-message-bus",
   "version": "1.0.1",
   "description": "Message bus based on RabbitMQ",
   "main": "dist/MessageBus.js",
