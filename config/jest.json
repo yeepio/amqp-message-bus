@@ -1,0 +1,11 @@
+{
+  "testEnvironment": "node",
+  "collectCoverageFrom": [
+    "src/**/*.{js}"
+  ],
+  "verbose": true,
+  "testPathIgnorePatterns": [
+    "/node_modules/",
+    "/client/"
+  ]
+}
