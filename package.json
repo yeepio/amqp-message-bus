@@ -2,6 +2,13 @@
   "name": "rabbitmq-message-bus",
   "version": "1.0.2",
   "description": "Simple message bus, powered by RabbitMQ.",
+  "keywords": [
+    "rabbitmq",
+    "message",
+    "bus",
+    "queue",
+    "mqtt"
+  ],
   "repository": {
     "type": "git",
     "url": "git@github.com:controlly/rabbitmq-message-bus.git"
