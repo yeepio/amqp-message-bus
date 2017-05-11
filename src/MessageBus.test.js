@@ -34,9 +34,9 @@ describe('MessageBus', () => {
         .toThrowError('Invalid "queue" property; expected string, received undefined');
     });
 
-    it('throws error when encryptionKey is unspecified', () => {
-      expect(() => new MessageBus({ url: process.env.RABBITMQ_URL, queue: '__test__' }))
-        .toThrowError('Invalid "encryptionKey" property; expected string, received undefined');
+    it('throws error when encryptionKey is invalid', () => {
+      expect(() => new MessageBus({ url: process.env.RABBITMQ_URL, queue: '__test__', encryptionKey: 123 }))
+        .toThrowError('Invalid "encryptionKey" property; expected string, received number');
     });
   });
 
