@@ -34,16 +34,16 @@ describe('MessageBus', () => {
         .toThrowError('Invalid "queue" property; expected string, received undefined');
     });
 
-    it('throws error when password is unspecified', () => {
+    it('throws error when encryptionKey is unspecified', () => {
       expect(() => new MessageBus({ url: process.env.RABBITMQ_URL, queue: '__test__' }))
-        .toThrowError('Invalid "password" property; expected string, received undefined');
+        .toThrowError('Invalid "encryptionKey" property; expected string, received undefined');
     });
   });
 
   const bus = new MessageBus({
     queue: '__test__',
     url: process.env.RABBITMQ_URL,
-    password: process.env.MESSAGE_BUS_PASSWORD
+    encryptionKey: process.env.MESSAGE_BUS_encryptionKey
   });
 
   describe('connect()', () => {

@@ -21,14 +21,14 @@ class MessageBus {
   constructor(spec) {
     if (!isPlainObject(spec)) throw new TypeError(`Invalid "spec" param; expected plain object, received ${typeOf(spec)}`);
 
-    const { url, queue, password } = spec;
+    const { url, queue, encryptionKey } = spec;
     if (!isString(url)) throw new TypeError(`Invalid "url" property; expected string, received ${typeOf(url)}`);
     if (!isString(queue)) throw new TypeError(`Invalid "queue" property; expected string, received ${typeOf(queue)}`);
-    if (!isString(password)) throw new TypeError(`Invalid "password" property; expected string, received ${typeOf(password)}`);
+    if (!(isString(encryptionKey) || isUndefined(encryptionKey))) throw new TypeError(`Invalid "encryptionKey" property; expected string, received ${typeOf(encryptionKey)}`);
 
     this.url = url;
     this.queue = queue;
-    this.password = password;
+    this.encryptionKey = encryptionKey;
     this.conn = null;
     this.publisherChannel = null;
     this.subscriberChannel = null;
@@ -41,7 +41,11 @@ class MessageBus {
    * @returns {Buffer}
    */
   encrypt(json) {
-    const cipher = crypto.createCipher('aes128', this.password);
+    if (this.encryptionKey === undefined) {
+      return Buffer.from(JSON.stringify(json), 'utf8');
+    }
+
+    const cipher = crypto.createCipher('aes128', this.encryptionKey);
     const buf1 = cipher.update(JSON.stringify(json), 'utf8');
     const buf2 = cipher.final();
     return Buffer.concat([buf1, buf2], buf1.length + buf2.length);
@@ -49,15 +53,20 @@ class MessageBus {
 
   /**
    * Decrypts the supplied buffer and returns a JSON object.
-   * @param {Object} obj
-   * @returns {Buffer}
+   * @param {Buffer} buf
+   * @returns {Object}
    */
   decrypt(buf) {
-    const decipher = crypto.createDecipher('aes128', this.password);
+    if (this.encryptionKey === undefined) {
+      return JSON.parse(buf.toString('utf8'));
+    }
+
+    const decipher = crypto.createDecipher('aes128', this.encryptionKey);
     const str = [
       decipher.update(buf, 'utf8'),
       decipher.final('utf8')
     ].join('');
+
     return JSON.parse(str);
   }
 
