@@ -1,0 +1,9 @@
+language: node_js
+node_js:
+  - 5.0
+  - 6.0
+  - 7.0
+services:
+  - rabbitmq
+env:
+  - RABBITMQ_URL=amqp://guest:guest@localhost/ MESSAGE_BUS_ENCRYPTION_KEY=keep-it-safe
