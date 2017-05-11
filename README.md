@@ -18,7 +18,7 @@ $ npm install amqp-message-bus
 
 #### Requirements
 
-* Node.js v.4+
+* Node.js v.6+
 
 ## Quick start
 
