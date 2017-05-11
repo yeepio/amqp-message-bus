@@ -1,3 +1,10 @@
+## 1.1.0 - 2017-05-11
+
+* Rebrand as amqp-message-bus, change repo URL and description.
+* Add README.md with API docs and examples.
+* Setup travis CI.
+* Rename constructor "password" prop to "encryptionKey" and make optional.
+
 ## 1.0.2 - 2017-05-05
 
 * Rename project to "rabbitmq-message-bus".
