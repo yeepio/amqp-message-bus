@@ -1,17 +1,17 @@
 {
-  "name": "rabbitmq-message-bus",
+  "name": "amqp-message-bus",
   "version": "1.0.2",
-  "description": "Simple message bus, powered by RabbitMQ.",
+  "description": "Node.js message bus interface for AMQP servers, such as RabbitMQ.",
   "keywords": [
     "rabbitmq",
     "message",
     "bus",
     "queue",
-    "mqtt"
+    "amqp"
   ],
   "repository": {
     "type": "git",
-    "url": "git@github.com:controlly/rabbitmq-message-bus.git"
+    "url": "git@github.com:controlly/amqp-message-bus.git"
   },
   "license": "MIT",
   "author": {
