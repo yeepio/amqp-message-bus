@@ -1,10 +1,10 @@
 {
   "name": "rabbitmq-message-bus",
   "version": "1.0.2",
-  "description": "Message bus based on RabbitMQ",
+  "description": "Simple message bus, powered by RabbitMQ.",
   "repository": {
     "type": "git",
-    "url": "git@github.com:access-control-management/rabbitmq-message-bus.git"
+    "url": "git@github.com:controlly/rabbitmq-message-bus.git"
   },
   "license": "MIT",
   "engines": {
