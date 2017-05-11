@@ -2,7 +2,7 @@
 
 Node.js message bus interface for AMQP servers, such as RabbitMQ.
 
-[![Build Status](https://travis-ci.org/controlly/ampq-message-bus.svg?branch=master)](https://travis-ci.org/controlly/ampq-message-bus) [![npm version](https://badge.fury.io/js/ampq-message-bus.svg)](https://badge.fury.io/js/ampq-message-bus)
+[![Build Status](https://travis-ci.org/controlly/amqp-message-bus.svg?branch=master)](https://travis-ci.org/controlly/amqp-message-bus) [![npm version](https://badge.fury.io/js/amqp-message-bus.svg)](https://badge.fury.io/js/amqp-message-bus)
 
 #### Features
 
