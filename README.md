@@ -6,9 +6,9 @@ Node.js message bus interface for AMQP servers, such as RabbitMQ.
 
 #### Features
 
-* Message bus API hides the complexity of AMQP connectors;
-* Supports symmetric message encryption;
-* Works pefectly fine with async/await.
+* Hides the complexity of AMQP client;
+* Comes with build-in symmetric message encryption;
+* Supports promises + async/await.
 
 ## Installation
 
@@ -18,15 +18,9 @@ $ npm install amqp-message-bus
 
 #### Requirements
 
-* Node.js v.6+
+* Node.js v.7+
 
 ## Quick start
-
-Install `amqp-message-bus` from npm.
-
-```
-$ npm install amqp-message-bus --save
-```
 
 Create new message bus.
 
@@ -34,51 +28,48 @@ Create new message bus.
 const MessageBus = require('amqp-message-bus');
 
 const bus = new MessageBus({
-  queue: 'tasks',
   url: 'amqp://localhost',
   encryptionKey: 'keep-it-safe'
 });
 ```
 
-Connect to AMQP server and subscribe for messages.
-
-```javascript
-bus.connect()
-  .then(() => bus.subscribe((msg, props, done) => {
-    // process msg + props
-    console.log(`Received message ${props.messageId} with priority ${props.priority}, published on ${props.timestamp}`);
-    // call done when message is done processing to remove from rabbitmq
-    done();
-  }))
-  // call this when you want to unsubscribe...
-  .then((unsubscribe) => unsubscribe())
-  // always catch errors with promises :-)
-  .catch((err) => console.error(err));
-```
-
-The same looks much better using async/await.
+Connect to AMQP server and subscribe to queue for messages.
 
 ```javascript
 await bus.connect();
 
-const unsubscribe = await bus.subscribe((msg, props, done) => {
+const unsubscribe = await bus.subscribe('my_queue', (msg, props, done) => {
   // process msg + props
   console.log(`Received message ${props.messageId} with priority ${props.priority}, published on ${props.timestamp}`);
   // call done when ready to remove message from rabbitmq
   done();
 });
 
-// call this when you want to unsubscribe...
+// unsubscribe from queue
 await unsubscribe();
+
+// disconnect from bus
+await bus.disconnect();
 ```
 
-Connect to AMQP server, publish message and immediately disconnect.
+Connect to AMQP server, create queue (if not exists) and send message.
 
 ```javascript
-bus.connect()
-  .then(() => bus.publish({ foo: 1, bar: 2 }))
-  .catch((err) => console.error(err))
-  .finally(() => bus.disconnect);
+await bus.connect();
+await bus.assertQueue('my_queue');
+await bus.sendToQueue('my_queue', { foo: 1, bar: 2 });
+await bus.disconnect();
+```
+
+Connect to AMQP server, create topic exchange and publish message to route.
+
+```javascript
+await bus.connect();
+await bus.assertExchange('my_exchange', 'topic'); // note the 2nd argument (i.e. "topic") used to create a topic exchange
+await bus.assertQueue('my_queue');
+await bus.bindQueue('my_queue', 'my_exchange', 'route.1'); // note the 3rd argument (i.e. route.1)
+await bus.publish('my_exchange', 'route.1', { foo: 1, bar: 2 }); // note the 3rd argument (i.e. route.1)
+await bus.disconnect();
 ```
 
 ## API Docs
@@ -87,18 +78,16 @@ bus.connect()
 
 Constructs new message bus with the supplied properties.
 
-##### Arguments
+#### Arguments
 
-1. `spec` _(Object)_ message bus properties (required).
-    * `spec.url` _(string)_ AMQP server URL (required).
-    * `spec.queue` _(string)_ the name of the queue to subscribe to (required).
-    * `spec.encryptionKey` _(string)_ encryption key to use with assymetric encryption (optional). Signifies no encryption if left unspecified.
+- **props** _(Object)_ message bus properties (required).
+- **props.url** _(string)_ AMQP server URL (required).
+- **props.encryptionKey** _(string)_ encryption key to use with symmetric encryption (optional).
 
-##### Example
+#### Example
 
 ```javascript
 const bus = new MessageBus({
-  queue: 'tasks',
   url: 'amqp://localhost',
   encryptionKey: 'keep-it-safe'
 });
@@ -106,18 +95,18 @@ const bus = new MessageBus({
 
 ### <a name="connect" href="connect">#</a>connect() -> Promise
 
-Connects to AMQP server using the connection properties specified at construction time.
+Connects to AMQP server.
 
-##### Returns
+#### Returns
 
-Returns a native Promise.
+`Promise`
 
-##### Example
+#### Example
 
 ```javascript
 bus.connect()
   .then(() => {
-    console.log('Connected to amqp server');
+    console.log('Connected to rabbitmq');
   })
   .catch((err) => {
     console.error(err);
@@ -128,43 +117,43 @@ bus.connect()
 
 Disconnects from AMQP server.
 
-##### Returns
+#### Returns
 
-Returns a native Promise.
+`Promise`
 
-##### Example
+#### Example
 
 ```javascript
 bus.disconnect()
   .then(() => {
-    console.log('Disconnected from amqp server');
+    console.log('Disconnected from rabbitmq');
   })
   .catch((err) => {
     console.error(err);
   });
 ```
 
-### <a name="subscribe" href="subscribe">#</a>subscribe(listener) -> Promise\<Function\>
+### <a name="subscribe" href="subscribe">#</a>subscribe(queue, listener)
 
-Subscribes to the message bus for incoming messages.
+Subscribes to the designated queue for incoming messages.
 
-##### Arguments
+#### Arguments
 
-1. `listener` _(Function\<Object, Object, Function\>)_ listener function (required).
-
-###### Listener function arguments
-
-1. `msg` _(Object)_ message body (required).
-2. `props` _(Object)_ message meta-data (required).
-3. `done` _(Function)_ call done to signal message proccessing is done (required).
+- **queue** _(string)_ the name of the queue to subscribe to
+- **listener** _(Function)_ listener function, i.e. `function(msg, props, done)` (required).
+    - **msg** _(Object)_ message body (required).
+    - **props** _(Object)_ message meta-data (required).
+    - **done** _(Function)_ call done to signal message proccessing is done (required).
 
 Please visit [http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue) for further info on `props` meta-data.
 
-##### Returns
+#### Returns
 
-Returns a native Promise resolving to an `unsubscribe()` method.
+`Promise<Function>`
 
-##### Example
+The function returned is the `unsubscribe()` method.
+
+#### Example
 
 ```javascript
 const listener = (msg, props, done) => {
@@ -177,14 +166,14 @@ const listener = (msg, props, done) => {
 bus.subscribe(listener)
   .then((unsubscribe) => {
     // unsubscribe when ready
-    unsubscribe();
+    return unsubscribe();
   })
   .catch((err) => {
     console.error(err);
   });
 ```
 
-##### Example using async/await
+#### Example using async/await
 
 ```javascript
 const unsubscribe = await bus.subscribe((msg, props, done) => {
@@ -198,36 +187,91 @@ const unsubscribe = await bus.subscribe((msg, props, done) => {
 await unsubscribe();
 ```
 
-### <a name="publish" href="publish">#</a>publish(msg, props) -> Promise\<boolean\>
+### <a name="sendToQueue" href="sendToQueue">#</a>sendToQueue(queue, message, props)
 
-Publishes the supplied message to the AMQP server.
+Sends the supplied message to the designated queue.
 
-##### Arguments
+#### Arguments
 
-1. `content` _(*)_ message body (required); can be any JSON serializable value, e.g. Object, Array.
-2. `props` _(Object)_ message props (optional).
-    * `props.id` _(string)_ message ID (optional; defaults to `UUID v4`)
-    * `props.priority` _(integer)_ message priority, must be between 1 and 10 (optional; defaults to 1)
-    * `props.timestamp` _(number)_ message timestamp (optional; defaults to `Date.now()`)
-    * `props.type` _(string)_ message type (optional)
+- **queue** _(string)_ the name of the queue to send message to (required)
+- **message** _(*)_ message body; can be any JSON serializable value (required)
+- **props** _(Object)_ message props (optional).
+- **props.id** _(string)_ message ID (optional; defaults to `UUID v4`)
+- **props.priority** _(integer)_ message priority, must be between 1 and 10 (optional; defaults to 1)
+- **props.timestamp** _(number)_ message timestamp (optional; defaults to `Date.now()`)
+- **props.type** _(string)_ message type (optional)
 
-##### Returns
+#### Returns
 
-Returns a native Promise resolving to a boolean value.
+`Promise`
 
-##### Example
+#### Example
 
 ```javascript
-bus.publish({ foo: 'bar' }, { type: 'nonsense', priority: 10 })
+bus.sendToQueue('my_queue', {
+  foo: 'bar'
+}, {
+  type: 'nonsense',
+  priority: 10
+})
   .catch((err) => {
     console.error(err);
   });
 ```
 
-##### Example using async/await
+#### Example using async/await
 
 ```javascript
-await bus.publish({ foo: 'bar' }, { type: 'nonsense', priority: 10 });
+await bus.sendToQueue({
+  foo: 'bar'
+}, {
+  type: 'nonsense',
+  priority: 10
+});
+```
+
+### <a name="publish" href="publish">#</a>publish(exchange, routingKey, message, props)
+
+Publishes the supplied message to the designated exchange.
+
+#### Arguments
+
+- **exchange** _(string)_ the name of the exchange to publish message to (required)
+- **routingKey** _(string)_ the routing key to publish message to (required)
+- **message** _(*)_ message body; can be any JSON serializable value (required)
+- **props** _(Object)_ message props (optional).
+- **props.id** _(string)_ message ID (optional; defaults to `UUID v4`)
+- **props.priority** _(integer)_ message priority, must be between 1 and 10 (optional; defaults to 1)
+- **props.timestamp** _(number)_ message timestamp (optional; defaults to `Date.now()`)
+- **props.type** _(string)_ message type (optional)
+
+#### Returns
+
+`Promise`
+
+#### Example
+
+```javascript
+bus.publish('my_exchange', 'route.1', {
+  foo: 'bar'
+}, {
+  type: 'nonsense',
+  priority: 10
+})
+  .catch((err) => {
+    console.error(err);
+  });
+```
+
+#### Example using async/await
+
+```javascript
+await bus.publish('my_exchange', 'route.1', {
+  foo: 'bar'
+}, {
+  type: 'nonsense',
+  priority: 10
+});
 ```
 
 ## Contribute
