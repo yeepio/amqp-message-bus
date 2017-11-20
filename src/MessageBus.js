@@ -1,7 +1,9 @@
 import crypto from 'crypto';
+import Promise from 'bluebird';
 import isPlainObject from 'lodash/isPlainObject';
 import isString from 'lodash/isString';
 import isFunction from 'lodash/isFunction';
+import isNull from 'lodash/isNull';
 import isUndefined from 'lodash/isUndefined';
 import isInteger from 'lodash/isInteger';
 import inRange from 'lodash/inRange';
@@ -11,53 +13,132 @@ import amqp from 'amqplib';
 import uuid from 'uuid';
 
 class MessageBus {
-
   /**
    * Constructs new message bus with the supplied properties.
-   * @param {Object} spec message bus properties
-   * @property {string} spec.url AMQP server URL
+   * @param {Object} props message bus properties
+   * @property {string} props.url AMQP server URL
+   * @property {string} [props.encryptionKey]
    * @constructor
    */
-  constructor(spec) {
-    if (!isPlainObject(spec)) throw new TypeError(`Invalid "spec" param; expected plain object, received ${typeOf(spec)}`);
+  constructor(props) {
+    if (!isPlainObject(props)) {
+      throw new TypeError(`Invalid props; expected plain object, received ${typeOf(props)}`);
+    }
 
-    const { url, queue, encryptionKey } = spec;
-    if (!isString(url)) throw new TypeError(`Invalid "url" property; expected string, received ${typeOf(url)}`);
-    if (!isString(queue)) throw new TypeError(`Invalid "queue" property; expected string, received ${typeOf(queue)}`);
-    if (!(isString(encryptionKey) || isUndefined(encryptionKey))) throw new TypeError(`Invalid "encryptionKey" property; expected string, received ${typeOf(encryptionKey)}`);
+    const {
+      url,
+      encryptionKey = null
+    } = props;
+
+    if (!isString(url)) {
+      throw new TypeError(`Invalid url property; expected string, received ${typeOf(url)}`);
+    }
+    if (!(isString(encryptionKey) || isNull(encryptionKey))) {
+      throw new TypeError(`Invalid encryptionKey property; expected string, received ${typeOf(encryptionKey)}`);
+    }
 
     this.url = url;
-    this.queue = queue;
     this.encryptionKey = encryptionKey;
+    this.consumers = new Map();
     this.conn = null;
-    this.publisherChannel = null;
-    this.subscriberChannel = null;
-    this.consumerTag = null;
+    this.incomingChannel = null;
+    this.outgoingChannel = null;
   }
 
   /**
-   * Encrypts the supplied JSON object and returns a new buffer.
-   * @param {Object} obj
+   * Connects to AMQP server.
+   * @returns {Promise}
+   */
+  async connect() {
+    // make sure not already connected
+    if (this.conn) {
+      return; // exit
+    }
+
+    // create connection
+    this.conn = await amqp.connect(this.url);
+    this.conn.on('error', (err) => {
+      console.error(err);
+    });
+    this.conn.on('close', () => this.reconnect());
+
+    // create for incoming / outgoing messages
+    this.incomingChannel = await this.conn.createChannel();
+    this.outgoingChannel = await this.conn.createConfirmChannel();
+
+    await this.incomingChannel.prefetch(1);
+  }
+
+  /**
+   * Disconnects from AMQP server.
+   * @returns {Promise}
+   */
+  async disconnect() {
+    // make sure not disconnected
+    if (!this.conn) {
+      return; // exit
+    }
+
+    // unsubscribe any active consumer(s)
+    await Promise.all(
+      Array.from(this.consumers.keys()).map((consumerTag) => {
+        return this.unsubscribe(consumerTag);
+      })
+    );
+
+    // close connection
+    this.conn.removeAllListeners();
+    await this.conn.close();
+
+    // reset local state
+    this.conn = null;
+    this.incomingChannel = null;
+    this.outgoingChannel = null;
+  }
+
+  /**
+   * Reconnects to AMQP server.
+   * @returns {Promise}
+   */
+  async reconnect() {
+    this.conn.removeAllListeners();
+    this.conn = null; // you need this otherwise connect() will exit prematurily
+
+    while (true) {
+      await Promise.delay(1000);
+      try {
+        await this.connect();
+        break; // exit loop
+      } catch (err) {
+        // do nothing
+      }
+    }
+  }
+
+  /**
+   * Encrypts the supplied payload and returns a new buffer.
+   * @param {string} encryptionKey
    * @returns {Buffer}
    */
-  encrypt(json) {
-    if (this.encryptionKey === undefined) {
-      return Buffer.from(JSON.stringify(json), 'utf8');
+  encrypt(payload) {
+    if (this.encryptionKey == null) {
+      return Buffer.from(JSON.stringify(payload), 'utf8');
     }
 
     const cipher = crypto.createCipher('aes128', this.encryptionKey);
-    const buf1 = cipher.update(JSON.stringify(json), 'utf8');
+    const buf1 = cipher.update(JSON.stringify(payload), 'utf8');
     const buf2 = cipher.final();
     return Buffer.concat([buf1, buf2], buf1.length + buf2.length);
   }
 
   /**
-   * Decrypts the supplied buffer and returns a JSON object.
+   * Decrypts the supplied buffer and returns its payload.
    * @param {Buffer} buf
+   * @param {string} encryptionKey
    * @returns {Object}
    */
   decrypt(buf) {
-    if (this.encryptionKey === undefined) {
+    if (this.encryptionKey == null) {
       return JSON.parse(buf.toString('utf8'));
     }
 
@@ -71,102 +152,72 @@ class MessageBus {
   }
 
   /**
-   * Connects to AMQP server.
-   * @returns {Promise}
-   */
-  async connect() {
-    // check if already connected
-    if (this.conn !== null) {
-      return; // exit
-    }
-
-    this.conn = await amqp.connect(this.url);
-    this.subscriberChannel = await this.conn.createChannel();
-    this.publisherChannel = await this.conn.createConfirmChannel();
-    await this.subscriberChannel.assertQueue(this.queue, {
-      durable: true,
-      maxPriority: 10
-    });
-    await this.subscriberChannel.prefetch(1);
-  }
-
-  /**
-   * Disconnects from AMQP server.
-   * @returns {Promise}
-   */
-  async disconnect() {
-    // check if already disconnected
-    if (this.conn === null) {
-      return; // exit
-    }
-
-    // cancel subscription if active
-    if (this.consumerTag !== null) {
-      await this.subscriberChannel.cancel(this.consumerTag);
-      this.consumerTag = null;
-    }
-
-    await this.conn.close();
-
-    this.conn = null;
-    this.subscriberChannel = null;
-    this.publisherChannel = null;
-  }
-
-  /**
-   * Subscribes to the message bus for incoming messages.
-   * @param {Function<Object, Object, Function>} listener a function with (msg, props, done) arguments
+   * Subscribes to the designated queue for messages.
+   * @param {string} queue
+   * @param {Function<Object, Object, Function>} listener i.e. function(msg, props, done) {}
    * @returns {Promise<Function>} resolving to an unsubscribe method
-   * @see {@link http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue} for further info on option properties.
    */
-  async subscribe(listener) {
-    if (!isFunction(listener)) throw new TypeError(`Invalid "callback" param; expected function, received ${typeOf(listener)}`);
+  async subscribe(queue, listener) {
+    if (!isString(queue)) {
+      throw new TypeError(`Invalid queue; expected string, received ${typeOf(queue)}`);
+    }
+    if (!isFunction(listener)) {
+      throw new TypeError(`Invalid listener; expected function, received ${typeOf(listener)}`);
+    }
 
-    if (this.subscriberChannel === null) {
-      throw new Error('Cannot subscribe to message bus; did you forget to call #connect()');
+    if (!this.conn) {
+      throw new Error('Cannot subscribe to queue; did you forget to call #connect()');
     }
 
     if (this.consumerTag) {
       throw new Error('Subscription already active; cannot open multiple subscriptions to the same message bus');
     }
 
+    // create unique consumer tag
+    const consumerTag = uuid.v4();
+
     try {
-      // create unique consumer tag
-      this.consumerTag = uuid.v4();
-
       // subscribe to channel
-      await this.subscriberChannel.consume(this.queue, (msg) => {
-        const done = (err) => {
-          if (err) {
-            this.subscriberChannel.nack(msg);
-          } else {
-            this.subscriberChannel.ack(msg);
-          }
-        };
-
-        const content = this.decrypt(msg.content);
-        const props = omitBy(msg.properties, isUndefined);
-
-        listener(content, props, done);
+      await this.incomingChannel.consume(queue, (msg) => {
+        listener(
+          this.decrypt(msg.content),
+          omitBy(msg.properties, isUndefined),
+          (err) => this.incomingChannel[err ? 'nack' : 'ack'](msg)
+        );
       }, {
-        consumerTag: this.consumerTag,
+        consumerTag,
         noAck: false // explicitely ack messages when done
       });
 
       // return unsubscribe() method
-      return async () => {
-        await this.subscriberChannel.cancel(this.consumerTag);
-        this.consumerTag = null;
-      };
-    } catch (err) {
-      this.consumerTag = null;
-      throw err;
+      return this.unsubscribe.bind(this, consumerTag);
+    } finally {
+      // add consumerTag to consumers registry
+      this.consumers.set(consumerTag, queue);
     }
   }
 
   /**
-   * Published the supplied message to the given queue.
-   * @param {*} content can be any JSON serializable value, incl. Object and Array.
+   * Unsubscribes the designated consumer.
+   * @param {string} consumerTag
+   * @returns {Promise}
+   */
+  async unsubscribe(consumerTag) {
+    if (!isString(consumerTag)) {
+      throw new TypeError(`Invalid consumerTag; expected string, received ${typeOf(consumerTag)}`);
+    }
+    if (!this.consumers.has(consumerTag)) {
+      throw new Error(`Unknown consumer tag ${consumerTag}`);
+    }
+
+    await this.incomingChannel.cancel(consumerTag);
+    this.consumers.delete(consumerTag);
+  }
+
+  /**
+   * Publishes the supplied message to the given exchange.
+   * @param {string} exchange
+   * @param {*} message can be any JSON serializable value, incl. Object and Array.
    * @param {Object} [props]
    * @property {number} [props.priority=1] message priority must be between 1 and 10.
    * @property {string} [props.type]
@@ -174,9 +225,19 @@ class MessageBus {
    * @property {number} [props.timestamp=Date.now()]
    * @returns {Promise<boolean>}
    */
-  async publish(content, props = {}) {
-    if (isUndefined(content)) throw new TypeError('Invalid "content" param; must be specified');
-    if (!isPlainObject(props)) throw new TypeError(`Invalid "props" param; expected plain object, received ${typeOf(props)}`);
+  async publish(exchange, routingKey, message, props = {}) {
+    if (!isString(exchange)) {
+      throw new TypeError(`Invalid exchange; expected string, received ${typeOf(exchange)}`);
+    }
+    if (!isString(routingKey)) {
+      throw new TypeError(`Invalid routingKey; expected string, received ${typeOf(routingKey)}`);
+    }
+    if (isUndefined(message)) {
+      throw new TypeError('Invalid message; must be specified');
+    }
+    if (!isPlainObject(props)) {
+      throw new TypeError(`Invalid props; expected plain object, received ${typeOf(props)}`);
+    }
 
     const {
       type,
@@ -185,24 +246,202 @@ class MessageBus {
       timestamp = Date.now()
     } = props;
 
-    if (!isInteger(priority)) throw new TypeError(`Invalid "priority" property; expected integer, received ${typeOf(priority)}`);
-    if (!inRange(priority, 1, 11)) throw new TypeError('Invalid "priority" property; must be between 1 and 10');
-    if (!isString(messageId)) throw new TypeError(`Invalid "messageId" property; expected string, received ${typeOf(messageId)}`);
-    if (!(isString(type) || isUndefined(type))) throw new TypeError(`Invalid "type" property; expected string, received ${typeOf(type)}`);
-    if (!isInteger(timestamp)) throw new TypeError(`Invalid "timestamp" property; expected integer, received ${typeOf(timestamp)}`);
-
-    // make sure publisher channel is open
-    if (this.publisherChannel === null) {
-      throw new Error('Cannot publish to message bus; did you forget to call #connect()');
+    if (!isInteger(priority)) {
+      throw new TypeError(`Invalid "priority" property; expected integer, received ${typeOf(priority)}`);
+    }
+    if (!inRange(priority, 1, 11)) {
+      throw new TypeError('Invalid "priority" property; must be between 1 and 10');
+    }
+    if (!isString(messageId)) {
+      throw new TypeError(`Invalid "messageId" property; expected string, received ${typeOf(messageId)}`);
+    }
+    if (!(isString(type) || isUndefined(type))) {
+      throw new TypeError(`Invalid "type" property; expected string, received ${typeOf(type)}`);
+    }
+    if (!isInteger(timestamp)) {
+      throw new TypeError(`Invalid "timestamp" property; expected integer, received ${typeOf(timestamp)}`);
     }
 
-    this.publisherChannel.sendToQueue(
-      this.queue,
-      this.encrypt(content),
-      { messageId, type, priority, timestamp }
+    // make sure connection is open
+    if (!this.conn) {
+      throw new Error('Cannot publish to exchange; did you forget to call #connect()');
+    }
+
+    return new Promise((resolve) => {
+      this.outgoingChannel.publish(
+        exchange,
+        routingKey,
+        this.encrypt(message),
+        {
+          messageId,
+          type,
+          priority,
+          timestamp
+        },
+        () => resolve()
+      );
+    });
+  }
+
+  /**
+   * Publishes the supplied message to the given queue.
+   * @param {string} queue
+   * @param {*} message can be any JSON serializable value, incl. Object and Array.
+   * @param {Object} [props]
+   * @property {number} [props.priority=1] message priority must be between 1 and 10.
+   * @property {string} [props.type]
+   * @property {string} [props.messageId=uuid.v4()]
+   * @property {number} [props.timestamp=Date.now()]
+   * @returns {Promise<boolean>}
+   */
+  async sendToQueue(queue, message, props = {}) {
+    if (!isString(queue)) {
+      throw new TypeError(`Invalid queue; expected string, received ${typeOf(queue)}`);
+    }
+    if (isUndefined(message)) {
+      throw new TypeError('Invalid message; must be specified');
+    }
+    if (!isPlainObject(props)) {
+      throw new TypeError(`Invalid props; expected plain object, received ${typeOf(props)}`);
+    }
+
+    const {
+      type,
+      priority = 1,
+      messageId = uuid.v4(),
+      timestamp = Date.now()
+    } = props;
+
+    if (!isInteger(priority)) {
+      throw new TypeError(`Invalid "priority" property; expected integer, received ${typeOf(priority)}`);
+    }
+    if (!inRange(priority, 1, 11)) {
+      throw new TypeError('Invalid "priority" property; must be between 1 and 10');
+    }
+    if (!isString(messageId)) {
+      throw new TypeError(`Invalid "messageId" property; expected string, received ${typeOf(messageId)}`);
+    }
+    if (!(isString(type) || isUndefined(type))) {
+      throw new TypeError(`Invalid "type" property; expected string, received ${typeOf(type)}`);
+    }
+    if (!isInteger(timestamp)) {
+      throw new TypeError(`Invalid "timestamp" property; expected integer, received ${typeOf(timestamp)}`);
+    }
+
+    // make sure connection is open
+    if (!this.conn) {
+      throw new Error('Cannot send to queue; did you forget to call #connect()');
+    }
+
+    return new Promise((resolve) => {
+      this.outgoingChannel.sendToQueue(
+        queue,
+        this.encrypt(message),
+        {
+          messageId,
+          type,
+          priority,
+          timestamp
+        },
+        () => resolve()
+      );
+    });
+  }
+
+  async assertExchange(exchange, type, options = {}) {
+    if (!isString(exchange)) {
+      throw new TypeError(`Invalid exchange; expected string, received ${typeOf(exchange)}`);
+    }
+    if (!isString(type)) {
+      throw new TypeError(`Invalid type; expected string, received ${typeOf(type)}`);
+    }
+    if (!isPlainObject(options)) {
+      throw new TypeError(`Invalid options; expected plain object, received ${typeOf(options)}`);
+    }
+
+    // make sure connection is open
+    if (!this.conn) {
+      throw new Error('Cannot assert exchange; did you forget to call #connect()');
+    }
+
+    return this.incomingChannel.assertExchange(exchange, type, options);
+  }
+
+  async assertQueue(queue, options = {}) {
+    if (!isString(queue)) {
+      throw new TypeError(`Invalid queue; expected string, received ${typeOf(queue)}`);
+    }
+    if (!isPlainObject(options)) {
+      throw new TypeError(`Invalid options; expected plain object, received ${typeOf(options)}`);
+    }
+
+    // make sure connection is open
+    if (!this.conn) {
+      throw new Error('Cannot assert queue; did you forget to call #connect()');
+    }
+
+    return this.incomingChannel.assertQueue(queue, options);
+  }
+
+  async deleteQueue(queue, options = {}) {
+    if (!isString(queue)) {
+      throw new TypeError(`Invalid queue; expected string, received ${typeOf(queue)}`);
+    }
+    if (!isPlainObject(options)) {
+      throw new TypeError(`Invalid options; expected plain object, received ${typeOf(options)}`);
+    }
+
+    // make sure connection is open
+    if (!this.conn) {
+      throw new Error('Cannot delete queue; did you forget to call #connect()');
+    }
+
+    // unsubscribe any queue consumer
+    await Promise.all(
+      Array.from(this.consumers)
+        .filter(([key, value]) => value === queue)
+        .map(([key]) => this.unsubscribe(key))
     );
 
-    return this.publisherChannel.waitForConfirms();
+    return this.incomingChannel.deleteQueue(queue, options);
+  }
+
+  async bindQueue(queue, source, pattern) {
+    if (!isString(queue)) {
+      throw new TypeError(`Invalid queue; expected string, received ${typeOf(queue)}`);
+    }
+    if (!isString(source)) {
+      throw new TypeError(`Invalid source; expected string, received ${typeOf(source)}`);
+    }
+    if (!isString(pattern)) {
+      throw new TypeError(`Invalid pattern; expected string, received ${typeOf(pattern)}`);
+    }
+
+    // make sure connection is open
+    if (!this.conn) {
+      throw new Error('Cannot assert queue; did you forget to call #connect()');
+    }
+
+    return this.incomingChannel.bindQueue(queue, source, pattern);
+  }
+
+  async unbindQueue(queue, source, pattern) {
+    if (!isString(queue)) {
+      throw new TypeError(`Invalid queue; expected string, received ${typeOf(queue)}`);
+    }
+    if (!isString(source)) {
+      throw new TypeError(`Invalid source; expected string, received ${typeOf(source)}`);
+    }
+    if (!isString(pattern)) {
+      throw new TypeError(`Invalid pattern; expected string, received ${typeOf(pattern)}`);
+    }
+
+    // make sure connection is open
+    if (!this.conn) {
+      throw new Error('Cannot assert queue; did you forget to call #connect()');
+    }
+
+    return this.incomingChannel.unbindQueue(queue, source, pattern);
   }
 }
 
