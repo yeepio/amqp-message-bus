@@ -424,4 +424,45 @@ describe('MessageBus', () => {
       });
     });
   });
+
+  // describe('existsQueue()', () => {
+  //   it('throws error when queue is unspecified', async () => {
+  //     try {
+  //       await bus.existsQueue();
+  //     } catch (err) {
+  //       expect(err.message).toBe('Invalid queue; expected string, received undefined');
+  //     }
+  //   });
+
+  //   describe('@disconnected', () => {
+  //     it('throws error when disconnected', async () => {
+  //       try {
+  //         await bus.existsQueue('queue', 123);
+  //       } catch (err) {
+  //         expect(err.message).toBe('Unable to check queue existence; did you forget to call #connect()');
+  //       }
+  //     });
+  //   });
+
+  //   describe('@connected', () => {
+  //     const queue = uuid.v4();
+
+  //     beforeAll(async () => {
+  //       await bus.connect();
+  //     });
+  //     afterAll(async () => {
+  //       await bus.deleteQueue(queue);
+  //       await bus.disconnect();
+  //     });
+
+  //     it('indicates if queue exists', async () => {
+  //       let exists = await bus.existsQueue(queue);
+  //       expect(exists).toBe(false);
+
+  //       await bus.assertQueue(queue);
+  //       exists = await bus.existsQueue(queue);
+  //       expect(exists).toBe(true);
+  //     });
+  //   });
+  // });
 });

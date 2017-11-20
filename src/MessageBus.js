@@ -60,7 +60,9 @@ class MessageBus {
     this.conn.on('error', (err) => {
       console.error(err);
     });
-    this.conn.on('close', () => this.reconnect());
+    this.conn.on('close', () => {
+      this.reconnect();
+    });
 
     // create for incoming / outgoing messages
     this.incomingChannel = await this.conn.createChannel();
@@ -284,7 +286,7 @@ class MessageBus {
   }
 
   /**
-   * Publishes the supplied message to the given queue.
+   * Sends the supplied message to the given queue.
    * @param {string} queue
    * @param {*} message can be any JSON serializable value, incl. Object and Array.
    * @param {Object} [props]
@@ -443,6 +445,29 @@ class MessageBus {
 
     return this.incomingChannel.unbindQueue(queue, source, pattern);
   }
+
+  // /**
+  //  * Indicates whether the designated queue already exists.
+  //  * @param {string} queue
+  //  * @returns {Promise}
+  //  */
+  // async existsQueue(queue) {
+  //   if (!isString(queue)) {
+  //     throw new TypeError(`Invalid queue; expected string, received ${typeOf(queue)}`);
+  //   }
+
+  //   // make sure connection is open
+  //   if (!this.conn) {
+  //     throw new Error('Unable to check queue existence; did you forget to call #connect()');
+  //   }
+
+  //   try {
+  //     const response = await this.incomingChannel.checkQueue(queue);
+  //     return response.queue === queue;
+  //   } catch (err) {
+  //     return false; // TODO: Find out why this shit causes the connection to close
+  //   }
+  // }
 }
 
 export default MessageBus;
