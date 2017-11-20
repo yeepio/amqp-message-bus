@@ -32,7 +32,7 @@
     "prepublish": "npm run build"
   },
   "dependencies": {
-    "amqplib": "^0.5.1",
+    "amqplib": "^0.5.2",
     "bluebird": "^3.5.0",
     "dotenv": "^4.0.0",
     "lodash": "^4.17.2",
