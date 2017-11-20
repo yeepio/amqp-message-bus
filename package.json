@@ -1,6 +1,6 @@
 {
   "name": "amqp-message-bus",
-  "version": "1.1.1",
+  "version": "2.0.0",
   "description": "Node.js message bus interface for AMQP servers, such as RabbitMQ.",
   "keywords": [
     "rabbitmq",

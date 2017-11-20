@@ -1,3 +1,8 @@
+## 2.0.0 - 2017-11-20
+
+* Complete rewrite to separate queues from exchanges.
+* Compatible with node v.7+.
+
 ## 1.1.1 - 2017-05-11
 
 * Update node engine support to v.6+.
