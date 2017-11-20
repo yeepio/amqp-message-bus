@@ -1,7 +1,6 @@
 {
-  "presets": ["es2015"],
+  "presets": ["es2017"],
   "plugins": [
-    ["transform-async-to-module-method", { "module": "bluebird", "method": "coroutine" }],
     "add-module-exports",
     "transform-es2015-modules-commonjs"
   ]

@@ -20,7 +20,7 @@
     "url": "https://github.com/jmike"
   },
   "engines": {
-    "node": ">=6.0.0"
+    "node": ">=7.6"
   },
   "main": "dist/MessageBus.js",
   "scripts": {
@@ -43,9 +43,8 @@
     "babel-cli": "^6.26.0",
     "babel-jest": "^21.2.0",
     "babel-plugin-add-module-exports": "^0.2.1",
-    "babel-plugin-transform-async-to-module-method": "^6.24.1",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.26.0",
-    "babel-preset-es2015": "^6.24.1",
+    "babel-preset-es2017": "^6.24.1",
     "eslint": "^4.11.0",
     "eslint-config-airbnb": "^16.1.0",
     "eslint-plugin-import": "^2.8.0",
