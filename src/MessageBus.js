@@ -82,11 +82,7 @@ class MessageBus {
     }
 
     // unsubscribe any active consumer(s)
-    await Promise.all(
-      Array.from(this.consumers.keys()).map((consumerTag) => {
-        return this.unsubscribe(consumerTag);
-      })
-    );
+    await this.unsubscribeAll();
 
     // close connection
     this.conn.removeAllListeners();
@@ -214,6 +210,18 @@ class MessageBus {
 
     await this.incomingChannel.cancel(consumerTag);
     this.consumers.delete(consumerTag);
+  }
+
+  /**
+   * Unsubscribes any active consumer.
+   * @returns {Promise}
+   */
+  async unsubscribeAll() {
+    return await Promise.all(
+      Array.from(this.consumers.keys()).map((consumerTag) => {
+        return this.unsubscribe(consumerTag);
+      })
+    );
   }
 
   /**
