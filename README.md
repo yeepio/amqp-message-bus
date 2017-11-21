@@ -274,6 +274,44 @@ await bus.publish('my_exchange', 'route.1', {
 });
 ```
 
+### <a name="unsubscribe" href="unsubscribe">#</a>unsubscribe(consumerTag)
+
+Unsubscribes the designated consumer.
+
+#### Arguments
+
+- **consumerTag** _(string)_ the ID of the consumer to unsubscribe from queue (required)
+
+#### Returns
+
+`Promise`
+
+#### Example
+
+```javascript
+bus.unsubscribe('consumer-123')
+  .catch((err) => {
+    console.error(err);
+  });
+```
+
+### <a name="unsubscribeAll" href="unsubscribeAll">#</a>unsubscribeAll()
+
+Unsubscribes all message bus consumers.
+
+#### Returns
+
+`Promise`
+
+#### Example
+
+```javascript
+bus.unsubscribeAll()
+  .catch((err) => {
+    console.error(err);
+  });
+```
+
 ## Contribute
 
 Source code contributions are most welcome. The following rules apply:
