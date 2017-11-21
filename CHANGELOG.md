@@ -1,3 +1,9 @@
+## 2.1.0 - 2017-11-21
+
+* Expose `unsubscribeAll()` and `deleteExchange()` methods.
+* Minor change in error messages copy.
+* Document `unsubscribe()` and `unsubscribeAll()` in README.md.
+
 ## 2.0.0 - 2017-11-20
 
 * Complete rewrite to separate queues from exchanges.
