@@ -164,7 +164,7 @@ class MessageBus {
     }
 
     if (!this.conn) {
-      throw new Error('Cannot subscribe to queue; did you forget to call #connect()');
+      throw new Error('Unable to subscribe to queue; did you forget to call #connect()');
     }
 
     if (this.consumerTag) {
@@ -274,7 +274,7 @@ class MessageBus {
 
     // make sure connection is open
     if (!this.conn) {
-      throw new Error('Cannot publish to exchange; did you forget to call #connect()');
+      throw new Error('Unable to publish to exchange; did you forget to call #connect()');
     }
 
     return new Promise((resolve) => {
@@ -340,7 +340,7 @@ class MessageBus {
 
     // make sure connection is open
     if (!this.conn) {
-      throw new Error('Cannot send to queue; did you forget to call #connect()');
+      throw new Error('Unable to send to queue; did you forget to call #connect()');
     }
 
     return new Promise((resolve) => {
@@ -371,7 +371,7 @@ class MessageBus {
 
     // make sure connection is open
     if (!this.conn) {
-      throw new Error('Cannot assert exchange; did you forget to call #connect()');
+      throw new Error('Unable to assert exchange; did you forget to call #connect()');
     }
 
     return this.incomingChannel.assertExchange(exchange, type, options);
@@ -403,7 +403,7 @@ class MessageBus {
 
     // make sure connection is open
     if (!this.conn) {
-      throw new Error('Cannot assert queue; did you forget to call #connect()');
+      throw new Error('Unable to assert queue; did you forget to call #connect()');
     }
 
     return this.incomingChannel.assertQueue(queue, options);
@@ -419,7 +419,7 @@ class MessageBus {
 
     // make sure connection is open
     if (!this.conn) {
-      throw new Error('Cannot delete queue; did you forget to call #connect()');
+      throw new Error('Unable to delete queue; did you forget to call #connect()');
     }
 
     // unsubscribe any queue consumer
@@ -445,7 +445,7 @@ class MessageBus {
 
     // make sure connection is open
     if (!this.conn) {
-      throw new Error('Cannot assert queue; did you forget to call #connect()');
+      throw new Error('Unable to assert queue; did you forget to call #connect()');
     }
 
     return this.incomingChannel.bindQueue(queue, source, pattern);
@@ -464,7 +464,7 @@ class MessageBus {
 
     // make sure connection is open
     if (!this.conn) {
-      throw new Error('Cannot assert queue; did you forget to call #connect()');
+      throw new Error('Unable to assert queue; did you forget to call #connect()');
     }
 
     return this.incomingChannel.unbindQueue(queue, source, pattern);

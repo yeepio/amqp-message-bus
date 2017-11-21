@@ -122,7 +122,7 @@ describe('MessageBus', () => {
         try {
           await bus.subscribe('queue', (msg, props, done) => done());
         } catch (err) {
-          expect(err.message).toBe('Cannot subscribe to queue; did you forget to call #connect()');
+          expect(err.message).toBe('Unable to subscribe to queue; did you forget to call #connect()');
         }
       });
     });
@@ -216,7 +216,7 @@ describe('MessageBus', () => {
         try {
           await bus.sendToQueue('queue', 123);
         } catch (err) {
-          expect(err.message).toBe('Cannot send to queue; did you forget to call #connect()');
+          expect(err.message).toBe('Unable to send to queue; did you forget to call #connect()');
         }
       });
     });
@@ -319,7 +319,7 @@ describe('MessageBus', () => {
         try {
           await bus.publish('exchange', 'route.a', 123);
         } catch (err) {
-          expect(err.message).toBe('Cannot publish to exchange; did you forget to call #connect()');
+          expect(err.message).toBe('Unable to publish to exchange; did you forget to call #connect()');
         }
       });
     });
