@@ -342,6 +342,7 @@ describe('MessageBus', () => {
       afterAll(async () => {
         await bus.unbindQueue(queue, exchange, routingKey);
         await bus.deleteQueue(queue);
+        await bus.deleteExchange(exchange);
         await bus.disconnect();
       });
 
@@ -387,6 +388,7 @@ describe('MessageBus', () => {
         await bus.deleteQueue(queue1);
         await bus.unbindQueue(queue2, exchange, routingKey2);
         await bus.deleteQueue(queue2);
+        await bus.deleteExchange(exchange);
         await bus.disconnect();
       });
 

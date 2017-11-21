@@ -369,6 +369,22 @@ class MessageBus {
     return this.incomingChannel.assertExchange(exchange, type, options);
   }
 
+  async deleteExchange(exchange, options = {}) {
+    if (!isString(exchange)) {
+      throw new TypeError(`Invalid exchange; expected string, received ${typeOf(exchange)}`);
+    }
+    if (!isPlainObject(options)) {
+      throw new TypeError(`Invalid options; expected plain object, received ${typeOf(options)}`);
+    }
+
+    // make sure connection is open
+    if (!this.conn) {
+      throw new Error('Unable to delete exchange; did you forget to call #connect()');
+    }
+
+    return this.incomingChannel.deleteExchange(exchange, options);
+  }
+
   async assertQueue(queue, options = {}) {
     if (!isString(queue)) {
       throw new TypeError(`Invalid queue; expected string, received ${typeOf(queue)}`);
